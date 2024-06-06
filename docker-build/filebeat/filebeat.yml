@@ -1,0 +1,22 @@
+processors:
+  - add_docker_metadata:
+      host: "unix:///var/run/docker.sock"
+
+  - decode_json_fields:
+      fields: ["message"]
+      target: "json"
+      overwrite_keys: true
+
+filebeat.inputs:
+  - type: log
+    # слушаем изменения в файле которые довазятся в контейнер filebeat'а из файла с логами приложения
+    paths:
+      - /var/log/ipiad_parser/*.log
+
+output.logstash:
+  enabled: true
+  hosts: ["logstash:5044"]
+
+logging.json: true
+logging.metrics.enabled: false
+logging.to_files: false

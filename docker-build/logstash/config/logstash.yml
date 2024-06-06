@@ -1,0 +1,2 @@
+http.host: "localhost"  # Listen on all network interfaces
+path.config: /usr/share/logstash/pipeline

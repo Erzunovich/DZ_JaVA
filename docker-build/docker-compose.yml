@@ -1,0 +1,90 @@
+version: '3.7'
+
+services:
+  rabbitmq:
+    image: "rabbitmq:3-management"
+    hostname: "rabbitmq"
+    environment:
+      RABBITMQ_ERLANG_COOKIE: "SWQOKODSQALRPCLNMEQG"
+      RABBITMQ_DEFAULT_USER: "rabbitmq"
+      RABBITMQ_DEFAULT_PASS: "rabbitmq"
+      RABBITMQ_DEFAULT_VHOST: "/"
+    volumes:
+      - ./docker-data/rabbitmq/etc/definitions.json:/etc/rabbitmq/definitions.json
+      - ./docker-data/rabbitmq/etc/rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf
+      - ./docker-data/rabbitmq/data:/var/lib/rabbitmq/mnesia/rabbit@my-rabbit
+      - ./docker-data/rabbitmq/logs:/var/log/rabbitmq/log
+    ports:
+      - "15672:15672"
+      - "5672:5672"
+    labels:
+      NAME: "rabbitmq"
+
+  elasticsearch:
+    image: elasticsearch:7.17.19
+    container_name: elasticsearch7
+    environment:
+      - xpack.security.enabled=false
+      - discovery.type=single-node
+    ulimits:
+      memlock:
+        soft: -1
+        hard: -1
+      nofile:
+        soft: 65536
+        hard: 65536
+    cap_add:
+      - IPC_LOCK
+    volumes:
+      - elasticsearch-data:/usr/share/elasticsearch/data
+    ports:
+      - 9200:9200
+      - 9300:9300
+    networks:
+      elk:
+
+  kibana:
+    container_name: kibana7
+    image: kibana:7.17.19
+    environment:
+      - ELASTICSEARCH_HOSTS=http://elasticsearch:9200
+    ports:
+      - 5601:5601
+    depends_on:
+      - elasticsearch
+    networks:
+      elk:
+
+  logstash:
+    container_name: logstash
+    image: logstash:7.17.19
+  #     args:
+  #       ELK_VERSION: $ELK_VERSION
+    volumes:
+      - ./logstash/config/logstash.yml:/usr/share/logstash/config/logstash.yml:ro
+      - ./logstash/pipeline:/usr/share/logstash/pipeline:ro
+    ports:
+      - "5044:5044"
+    environment:
+      LS_JAVA_OPTS: "-Xmx256m -Xms256m"
+    networks:
+      elk:
+    depends_on:
+      - elasticsearch
+
+  filebeat:
+    container_name: filebeat
+    image: elastic/filebeat:7.17.19
+    volumes:
+      - ./filebeat/filebeat.yml:/usr/share/filebeat/filebeat.yml
+      - ../data/logs:/var/log/ipiad_parser
+    depends_on:
+      - elasticsearch
+      - logstash
+    networks:
+      elk:
+volumes:
+  elasticsearch-data:
+    driver: local
+networks:
+  elk:
